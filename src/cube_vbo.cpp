@@ -6,6 +6,8 @@
 #include <vector>
 #include "cube_vbo.h"
 
+#include <set>
+
 // Vertex shader source
 const char* vertexShaderSource = R"(
 #version 330 compatibility
@@ -112,43 +114,46 @@ void CubeRenderer::setupShaders() {
 }
 
 void CubeRenderer::setupBuffers() {
+
+
+	float size = 0.5f;
 	// Cube vertices with positions and colors
 	float vertices[] = {
 		// Front face (red)
-		-0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-		 0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-		 0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-		-0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
+		-size, -size,  size,  1.0f, 0.0f, 0.0f,
+		 size, -size,  size,  1.0f, 0.0f, 0.0f,
+		 size,  size,  size,  1.0f, 0.0f, 0.0f,
+		-size,  size,  size,  1.0f, 0.0f, 0.0f,
 
 		// Back face (green)
-		-0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-		 0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-		 0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-		-0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
+		-size, -size, -size,  0.0f, 1.0f, 0.0f,
+		 size, -size, -size,  0.0f, 1.0f, 0.0f,
+		 size,  size, -size,  0.0f, 1.0f, 0.0f,
+		-size,  size, -size,  0.0f, 1.0f, 0.0f,
 
 		// Left face (blue)
-		-0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
-		-0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 1.0f,
-		-0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f,
-		-0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f,
+		-size, -size, -size,  0.0f, 0.0f, 1.0f,
+		-size, -size,  size,  0.0f, 0.0f, 1.0f,
+		-size,  size,  size,  0.0f, 0.0f, 1.0f,
+		-size,  size, -size,  0.0f, 0.0f, 1.0f,
 
 		// Right face (yellow)
-		 0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-		 0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
-		 0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
-		 0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
+		 size, -size, -size,  1.0f, 1.0f, 0.0f,
+		 size, -size,  size,  1.0f, 1.0f, 0.0f,
+		 size,  size,  size,  1.0f, 1.0f, 0.0f,
+		 size,  size, -size,  1.0f, 1.0f, 0.0f,
 
 		 // Top face (magenta)
-		 -0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 1.0f,
-		  0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 1.0f,
-		  0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,
-		 -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 1.0f,
+		 -size,  size, -size,  1.0f, 0.0f, 1.0f,
+		  size,  size, -size,  1.0f, 0.0f, 1.0f,
+		  size,  size,  size,  1.0f, 0.0f, 1.0f,
+		 -size,  size,  size,  1.0f, 0.0f, 1.0f,
 
 		 // Bottom face (cyan)
-		 -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,
-		  0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f,
-		  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
-		 -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 1.0f
+		 -size, -size, -size,  0.0f, 1.0f, 1.0f,
+		  size, -size, -size,  0.0f, 1.0f, 1.0f,
+		  size, -size,  size,  0.0f, 1.0f, 1.0f,
+		 -size, -size,  size,  0.0f, 1.0f, 1.0f
 	};
 
 	// Indices for cube faces
@@ -192,23 +197,41 @@ void CubeRenderer::setupBuffers() {
 	glBindVertexArray(0);
 }
 
-void CubeRenderer::render(const glm::mat4& view, const glm::mat4& projection, const std::vector<glm::mat4>& models, bool selected) {
+void CubeRenderer::render(const glm::mat4& view, const glm::mat4& projection, const std::vector<glm::mat4>& models, const std::set<int>& selected )
+{
 	glUseProgram(shaderProgram);
 
 	// Set view and projection matrices
 	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 	
-	glUniform1i(selectedLoc, selected?1:0);
+	
 	glBindVertexArray(VAO);
 
+	int model_id = 100;
 	// Render each cube with its model matrix
 	for (const auto& model : models) {
+
+		if (selection_mode) {
+			glLoadName(model_id);
+		}
+
+		if(selected.count(model_id))
+		{
+			glUniform1i(selectedLoc, 1 );
+		}
+		else
+		{
+			glUniform1i(selectedLoc, 0);
+		}
+
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+		++model_id;
 	}
 
 	glBindVertexArray(0);
+	glUseProgram(0);
 }
 
 

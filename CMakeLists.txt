@@ -27,6 +27,8 @@ add_executable (mixed_mode_selection
 "src/rubberband_selection.cpp" 
 "src/cube_vbo.cpp" 
 "src/cube_vbo.h"
+"src/cube_legacy.cpp"
+"src/cube_legacy.h"
 "3rdparty/glad/src/glad.c" )
 
 

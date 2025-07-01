@@ -7,14 +7,15 @@
 #include <math.h>
 #include <iostream>
 #include "cube_vbo.h"
+#include "cube_legacy.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
+#include <set>
 
 #define BUFSIZE 512
-#define MAX_OBJECTS 10
+#define MAX_OBJECTS 3
 
 // Window dimensions
 int windowWidth = 800;
@@ -30,6 +31,7 @@ typedef struct
 {
     glm::mat4 view, projection;
     CubeRenderer* cube_renderer;
+    CubeLegacy* cube_legacy;
 } MyWindowData;
 
 // Rubberband selection state
@@ -41,77 +43,13 @@ typedef struct {
 
 RubberbandState rubberband = { 0, 0, 0, 0, 0 };
 
-// Object selection state
-int selectedObjects[MAX_OBJECTS] = { 0 }; // Array to track selected objects
-int numObjects = 6; // Number of objects in scene
-bool vbo_obj_selected = false;
-// Object positions (for our demo cubes)
-typedef struct {
-    float x, y, z;
-    float r, g, b; // Color
-} Object;
-
-Object objects[] = {
-    {-3.0f, -2.0f, 0.0f, 1.0f, 0.0f, 0.0f}, // Red
-    { 0.0f, -2.0f, 0.0f, 0.0f, 1.0f, 0.0f}, // Green
-    { 3.0f, -2.0f, 0.0f, 0.0f, 0.0f, 1.0f}, // Blue
-    {-3.0f,  2.0f, 0.0f, 1.0f, 1.0f, 0.0f}, // Yellow
-    { 0.0f,  2.0f, 0.0f, 1.0f, 0.0f, 1.0f}, // Magenta
-    { 3.0f,  2.0f, 0.0f, 0.0f, 1.0f, 1.0f}  // Cyan
-};
-
-// Draw a simple cube
-void drawCube(float size) {
-    glBegin(GL_QUADS);
-
-    // Front face
-    glVertex3f(-size, -size, size);
-    glVertex3f(size, -size, size);
-    glVertex3f(size, size, size);
-    glVertex3f(-size, size, size);
-
-    // Back face
-    glVertex3f(-size, -size, -size);
-    glVertex3f(-size, size, -size);
-    glVertex3f(size, size, -size);
-    glVertex3f(size, -size, -size);
-
-    // Top face
-    glVertex3f(-size, size, -size);
-    glVertex3f(-size, size, size);
-    glVertex3f(size, size, size);
-    glVertex3f(size, size, -size);
-
-    // Bottom face
-    glVertex3f(-size, -size, -size);
-    glVertex3f(size, -size, -size);
-    glVertex3f(size, -size, size);
-    glVertex3f(-size, -size, size);
-
-    // Right face
-    glVertex3f(size, -size, -size);
-    glVertex3f(size, size, -size);
-    glVertex3f(size, size, size);
-    glVertex3f(size, -size, size);
-
-    // Left face
-    glVertex3f(-size, -size, -size);
-    glVertex3f(-size, -size, size);
-    glVertex3f(-size, size, size);
-    glVertex3f(-size, size, -size);
-
-    glEnd();
-}
+std::set<int> selected;
 
 // Draw the 3D scene
-void drawScene(int selectionMode, glm::mat4 view, glm::mat4 projection, CubeRenderer& cube_renderer) {
+void drawScene(int selectionMode, glm::mat4 view, glm::mat4 projection, CubeRenderer& cube_renderer, CubeLegacy& cube_legacy) {
     if (!selectionMode) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
-
-    //Set up projection
-//    glMatrixMode(GL_PROJECTION);
-//    glLoadMatrixf(glm::value_ptr(projection));
 
     // Set up camera
     glMatrixMode(GL_MODELVIEW);
@@ -119,10 +57,6 @@ void drawScene(int selectionMode, glm::mat4 view, glm::mat4 projection, CubeRend
     gluLookAt(0.0, 0.0, 8.0,   // eye position
         0.0, 0.0, 0.0,   // look at point
         0.0, 1.0, 0.0);  // up vector
-    //glMultMatrixf(glm::value_ptr(view));
-    //glLoadMatrixf(glm::value_ptr(view));
-
-
 
     // Initialize name stack for selection
     if (selectionMode) {
@@ -138,47 +72,36 @@ void drawScene(int selectionMode, glm::mat4 view, glm::mat4 projection, CubeRend
 
     //glm::mat4 model = glm::mat4(1.0);
 
-    glm::mat4 model3 = glm::mat4(1.0f);
-    model3 = glm::translate(model3, glm::vec3(0.f, 0.0f, 0.0f));
-    model3 = glm::rotate(model3, glm::radians(30.f), glm::vec3(1.0f, 0.0f, 0.0f));
-    model3 = glm::rotate(model3, glm::radians(15.f), glm::vec3(0.0f, 1.0f, 0.0f));
+    std::vector<glm::vec3> positions;
+    positions.push_back({ -3.0f, -2.0f, 0.0f });
+    //positions.push_back({ 0.0f, -2.0f, 0.0f });
+    //positions.push_back({ 3.0f, -2.0f, 0.0f });
+    //positions.push_back({ -3.0f,  2.0f, 0.0f });
+    //positions.push_back({ 0.0f,  2.0f, 0.0f });
+    //positions.push_back({ 3.0f,  2.0f, 0.0f });
 
-
-    if (selectionMode) {
-        glLoadName(100); // Object IDs start from 1
-    }
-
-    cube_renderer.render(v, p, { model3 }, vbo_obj_selected);
-
-    // Switch back to fixed-function pipeline.
-    glUseProgram(0);
-    // Draw all objects
-    for (int i = 0; i < numObjects; i++) {
-        if (selectionMode) {
-            glLoadName(i + 1); // Object IDs start from 1
-        }
-        else {
-            // Set color based on selection state
-            if (selectedObjects[i]) {
-                // Selected objects are brighter
-                //glColor3f(objects[i].r * 0.7f + 0.3f,
-                //    objects[i].g * 0.7f + 0.3f,
-                //    objects[i].b * 0.7f + 0.3f);
-                glColor3f(0.8, 0.8, 0.8);
-            }
-            else {
-                glColor3f(objects[i].r, objects[i].g, objects[i].b);
-            }
-        }
-
-        glPushMatrix();
-        glTranslatef(objects[i].x, objects[i].y, objects[i].z);
-        drawCube(0.8f);
-        glPopMatrix();
-    }
+    cube_legacy.render(positions, selected, selectionMode);
 
 
 
+    std::vector<glm::mat4> models;
+    auto getModelMat = [](glm::vec3 pos) -> glm::mat4
+    {
+        glm::mat4 model3 = glm::mat4(1.0f);
+        model3 = glm::translate(model3, pos);
+        model3 = glm::rotate(model3, glm::radians(30.f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model3 = glm::rotate(model3, glm::radians(15.f), glm::vec3(0.0f, 1.0f, 0.0f));
+        return model3;
+    };
+
+    models.push_back(getModelMat(glm::vec3(3.0f, 2.0f, 0.0f)));
+    //models.push_back(getModelMat(glm::vec3( 0.0f, 0.0f, 0.0f)));
+    //models.push_back(getModelMat(glm::vec3( 3.0f, 0.0f, 0.0f)));
+
+
+
+    cube_renderer.set_section_mode(selectionMode);
+    cube_renderer.render(v, p, models, selected);
 
 }
 
@@ -244,9 +167,7 @@ void processHits(GLint hits, GLuint buffer[]) {
     printf("Rubberband selection hits: %d\n", hits);
 
     // Clear previous selection
-    for (int i = 0; i < numObjects; i++) {
-        selectedObjects[i] = 0;
-    }
+    selected.clear();
 
     // Process all hits
     for (int i = 0; i < hits; i++) {
@@ -257,22 +178,21 @@ void processHits(GLint hits, GLuint buffer[]) {
         // Get object names
         for (GLuint j = 0; j < names; j++) {
             GLuint objectId = *ptr++;
-            if (objectId >= 1 && objectId <= numObjects) {
-                selectedObjects[objectId - 1] = 1; // Mark as selected
+            if (objectId >= 1 ) {
+                selected.insert(objectId);
                 printf("Selected object: %d\n", objectId);
             }
 
-            if(objectId == 100)
+            if(objectId >= 100)
             {
                 printf("VBO object selected: %d\n", objectId);
-                vbo_obj_selected = true;
             }
         }
     }
 }
 
 // Perform rubberband selection
-void performRubberbandSelection(glm::mat4 view, glm::mat4 projection, CubeRenderer& cube_renderer) {
+void performRubberbandSelection(glm::mat4 view, glm::mat4 projection, CubeRenderer& cube_renderer, CubeLegacy& cube_legacy) {
     GLint viewport[4];
 
     // Get current viewport
@@ -321,7 +241,7 @@ void performRubberbandSelection(glm::mat4 view, glm::mat4 projection, CubeRender
     //glMatrixMode(GL_PROJECTION);
     //glMultMatrixf(glm::value_ptr(projection));
     // Draw the scene in selection mode
-    drawScene(1, view, projection, cube_renderer);
+    drawScene(1, view, projection, cube_renderer, cube_legacy);
 
     // Restore projection matrix
     glMatrixMode(GL_PROJECTION);
@@ -353,9 +273,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
             // Clear selection if not holding Ctrl
             if (!(mods & GLFW_MOD_CONTROL)) {
-                for (int i = 0; i < numObjects; i++) {
-                    selectedObjects[i] = 0;
-                }
+                selected.clear();
             }
         }
         else if (action == GLFW_RELEASE) {
@@ -363,7 +281,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
             if (rubberband.active) {
 
                 MyWindowData* data = static_cast<MyWindowData*>(glfwGetWindowUserPointer(window));
-                performRubberbandSelection(data->view, data->projection, *data->cube_renderer);
+                performRubberbandSelection(data->view, data->projection, *data->cube_renderer, *data->cube_legacy);
                 rubberband.active = 0;
             }
         }
@@ -495,7 +413,9 @@ int main() {
         100.0f                         // Far plane
     );
 
-    MyWindowData my_matrices{ view, projection, &cubeRenderer };
+    CubeLegacy cube_legacy;
+
+    MyWindowData my_matrices{ view, projection, &cubeRenderer, &cube_legacy };
     glfwSetWindowUserPointer(window, &my_matrices);
 
     // Set callbacks
@@ -514,7 +434,7 @@ int main() {
         }
 
         // Render 3D scene
-        drawScene(0, view, projection, cubeRenderer);
+        drawScene(0, view, projection, cubeRenderer, cube_legacy);
 
         // Draw rubberband overlay
         drawRubberband();
